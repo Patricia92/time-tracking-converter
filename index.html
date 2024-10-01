@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Time Tracking Formatter</title>
+</head>
+<body>
+<h1>Time Tracking Formatter</h1>
+
+<div class="steps_wrapper">
+    <form id="step-1" class="step">
+        <h2>Input</h2>
+
+        <label>
+            <span>Time Log Input</span>
+            <textarea name="time-log-input" required autofocus></textarea>
+        </label>
+
+        <label>
+            <span>Date</span>
+            <input type="date" id="time-log-date" name="time-log-date" required>
+        </label>
+
+        <input type="submit" value="Generate Jira Timesheet">
+    </form>
+
+    <form id="step-2" class="step">
+        <h2>Generated Jira Timesheet</h2>
+
+        <label>
+            <textarea id="jira-timesheet" name="jira-timesheet" required></textarea>
+        </label>
+
+        <input type="submit" value="Download Jira Timesheet">
+    </form>
+</div>
+</body>
+
+<script>
+    document.getElementById('time-log-date').value = new Date().toISOString().substring(0, 10);
+
+    const step1Form = document.getElementById('step-1');
+    const step2Form = document.getElementById('step-2');
+    const jiraTimesheetTextarea = document.getElementById('jira-timesheet');
+
+    step1Form.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        const formData = new FormData(step1Form);
+        const date = formData.get('time-log-date');
+        const timeLog = formData.get('time-log-input');
+
+        let timesheet = [];
+        for (const line of timeLog.split("\n")) {
+            if (line.trim() === '' || line.endsWith('**')) {
+                continue;
+            }
+
+            let [duration, time, comment] = line.split("\t");
+
+            let ticketMatches = comment.match(/CTVSP-\d+/);
+            if (!ticketMatches) {
+                ticketMatches = comment.match(/CTVSP: \d+/);
+            }
+            let ticketId = ticketMatches ? ticketMatches[0] : 'CTVSP-2761';
+            ticketId = ticketId.replace(': ', '-');
+
+            duration = duration.replaceAll(' ', '');
+            duration = duration.replace('min', 'm');
+            duration = duration.split('h').join('h ');
+
+            const timestamp = date + ' ' + time.substring(1, 6) +':00Z';
+
+            // Strip ticket number from comment
+            comment = comment.replace(/\(CTVSP-\d+\)/, '');
+            comment = comment.replace(/CTVSP-\d+:/, '');
+            comment = comment.replace(/CTVSP-\d+/, '');
+            comment = comment.replace(/CTVSP: \d+ -/, '');
+            comment = comment.replace(/CTVSP: \d+/, '');
+            comment = comment.trim();
+
+            timesheet.push([ticketId, timestamp, duration, comment].join(','));
+        }
+
+        jiraTimesheetTextarea.value = timesheet.join("\n");
+        step2Form.style.visibility = 'visible';
+    });
+
+    step2Form.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        const csvContent = 'data:text/csv;charset=utf-8,' + jiraTimesheetTextarea.value
+        window.open(encodeURI(csvContent));
+    });
+</script>
+
+<style>
+    body {
+        font-family: sans-serif;
+    }
+
+    h2 {
+        margin: 0;
+    }
+
+    input[type="submit"] {
+        cursor: pointer;
+        border: none;
+        background-color: #4B49AC;
+        color: #FFF;
+        font-weight: bold;
+        font-size: 1.5rem;
+        padding: 0.5rem;
+        max-width: 24rem;
+    }
+
+    .steps_wrapper {
+        display: flex;
+        gap: 2rem;
+        width: 100%;
+    }
+
+    .step {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+
+        label {
+            cursor: pointer;
+            display: flex;
+            align-items: flex-start;
+            width: 100%;
+
+            :first-child {
+                width: 7rem;
+            }
+        }
+
+        textarea {
+            flex-grow: 1;
+        }
+
+        input[type="date"] {
+            flex-grow: 1;
+            height: 1.5rem;
+        }
+    }
+
+    #step-1 textarea {
+        height: 20rem;
+    }
+
+    #step-2 {
+        visibility: hidden;
+
+        textarea {
+            height: 22.5rem;
+        }
+    }
+</style>
+</html>
